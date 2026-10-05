@@ -1,0 +1,59 @@
+# Daily data sync: the GitLab counterpart of .github/workflows/update-data.yaml.
+#
+# A pipeline schedule (daily, 00:00 UTC) runs `pnpm build:data`, and commits the
+# export only when the GeoJSON/CSV content changed (ignoring `fetched_at`). The
+# push fires the Coolify webhook, which rebuilds and redeploys the map. No
+# separate deploy job is needed.
+#
+# Needs CI/CD variables BASE_URL and API_KEY (masked), and the project setting
+# "Allow Git push requests to the repository" for CI_JOB_TOKEN
+# (Settings > CI/CD > Job token permissions).
+
+stages:
+  - update
+
+update-data:
+  stage: update
+  image: node:20-bookworm
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    # The "Run pipeline" button, i.e. the workflow_dispatch equivalent.
+    - if: $CI_PIPELINE_SOURCE == "web"
+  resource_group: update-data
+  timeout: 20m
+  variables:
+    GIT_DEPTH: "0"
+  before_script:
+    - corepack enable
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm build:data
+    - |
+      set -euo pipefail
+      geojson=public/data/datacenters.geojson
+      csv=public/data/datacenters.csv
+
+      changed=false
+      git diff --quiet -- "$csv" || changed=true
+      if ! git diff --quiet -- "$geojson"; then
+        if git show HEAD:"$geojson" > /tmp/old.geojson 2>/dev/null; then
+          node -e '
+            const fs = require("fs");
+            const norm = (p) => { const j = JSON.parse(fs.readFileSync(p, "utf8")); delete j.fetched_at; return JSON.stringify(j); };
+            process.exit(norm("/tmp/old.geojson") === norm(process.argv[1]) ? 0 : 1);
+          ' "$geojson" || changed=true
+        else
+          changed=true
+        fi
+      fi
+
+      if [ "$changed" != true ]; then
+        echo "No meaningful data changes (ignoring fetched_at)."
+        exit 0
+      fi
+
+      git config user.name "GitLab CI"
+      git config user.email "ci@${CI_SERVER_HOST}"
+      git add "$geojson" "$csv"
+      git commit -m "🗃️ Update datacenter export from DC database"
+      git push "${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/${CI_PROJECT_PATH}.git" "HEAD:refs/heads/${CI_COMMIT_BRANCH}"
