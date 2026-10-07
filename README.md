@@ -69,3 +69,5 @@ pnpm build
 | `q` | text | Search |
 | `feature` | UUID | Open detail panel |
 
+The map keeps these in its own URL as you use it (`replaceState`). When embedded in an iframe it also posts every change to the parent page as `{ type: "heisseluft-map:state", search }`, where `search` is the query string with `start` always included. heisseluft.org's `map-embed.js` mirrors that into its address bar and forwards the same parameters from its own URL into the iframe, so links like `heisseluft.org/?feature=<uuid>` open the map on one data center.
+
