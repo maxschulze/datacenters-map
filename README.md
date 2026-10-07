@@ -35,7 +35,7 @@ https://map.heisseluft.org, embedded on heisseluft.org. Coolify (team Heisseluft
 
 | Remote | URL | Role |
 |--------|-----|------|
-| `origin` | `ssh://git@gitlab.naughty-narwhal.coolify.ided.digital:2222/leitmotiv/datacenters-map.git` | Primary; deployed by Coolify |
+| `origin` | `ssh://git@gitlab.naughty-narwhal.coolify.ided.digital:2222/heisseluft/datacenters-map.git` | Primary; deployed by Coolify |
 | `github` | `git@github.com:maxschulze/datacenters-map.git` | Our fork, for PRs to upstream |
 | `upstream` | `https://github.com/okfde/datacenters-map.git` | okfde original, fetch only |
 
